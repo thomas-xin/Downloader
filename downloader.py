@@ -174,8 +174,6 @@ def download(url, fn, resp=None, index=0, start=None, end=None):
                         s = f"\r{percentage}%"
                         s += " " * (64 - len(s))
                         print(s, end="")
-                    if not resp:
-                        break
             except StopIteration:
                 break
             except:
