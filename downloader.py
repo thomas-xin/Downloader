@@ -1,3 +1,5 @@
+# Better than Curl 🥌
+
 import os, sys, requests, time, math, random, concurrent.futures
 from traceback import print_exc
 from math import *
