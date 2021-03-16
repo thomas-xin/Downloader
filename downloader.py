@@ -197,7 +197,7 @@ if not os.path.exists("cache"):
     os.mkdir("cache")
 if not os.path.exists("files"):
     os.mkdir("files")
-for i in range(100):
+for i in range(1):
     print("Sending sampler request...")
     t = utc()
     rheader = header()
