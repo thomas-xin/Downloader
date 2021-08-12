@@ -47,17 +47,9 @@ def round_min(x):
         return x
     if type(x) is not complex:
         if isfinite(x):
-            if type(x) is globals().get("mpf", None):
-                y = int(x)
-                if x == y:
-                    return y
-                f = float(x)
-                if str(x) == str(f):
-                    return f
-            else:
-                y = math.round(x)
-                if x == y:
-                    return int(y)
+            y = math.round(x)
+            if x == y:
+                return int(y)
         return x
     else:
         if x.imag == 0:
@@ -91,6 +83,47 @@ def time_disp(s, rounded=True):
     return output
 
 
+class cdict(dict):
+
+    __slots__ = ()
+
+    __init__ = lambda self, *args, **kwargs: super().__init__(*args, **kwargs)
+    __repr__ = lambda self: f"{self.__class__.__name__}({super().__repr__() if super().__len__() else ''})"
+    __str__ = lambda self: super().__repr__()
+    __iter__ = lambda self: iter(tuple(super().__iter__()))
+    __call__ = lambda self, k: self.__getitem__(k)
+
+    def __getattr__(self, k):
+        try:
+            return self.__getattribute__(k)
+        except AttributeError:
+            pass
+        if not k.startswith("__") or not k.endswith("__"):
+            try:
+                return self.__getitem__(k)
+            except KeyError as ex:
+                raise AttributeError(*ex.args)
+        raise AttributeError(k)
+
+    def __setattr__(self, k, v):
+        if k.startswith("__") and k.endswith("__"):
+            return object.__setattr__(self, k, v)
+        return self.__setitem__(k, v)
+
+    def __dir__(self):
+        data = set(object.__dir__(self))
+        data.update(self)
+        return data
+
+    @property
+    def __dict__(self):
+        return self
+
+    ___repr__ = lambda self: super().__repr__()
+    to_dict = lambda self: dict(**self)
+    to_list = lambda self: list(super().values())
+
+
 def header():
     return {
         "User-Agent": f"Mozilla/5.{random.randint(1, 9)}",
@@ -98,8 +131,10 @@ def header():
     }
 
 
+updated = False
 def download(url, fn, resp=None, index=0, start=None, end=None):
     size = 0
+    packet = 1048576
     with open(fn, "wb") as f:
         while True:
             try:
@@ -112,15 +147,17 @@ def download(url, fn, resp=None, index=0, start=None, end=None):
                         rend = end - 1 if end else ""
                         r = f"bytes={rstart}-{rend}"
                         rheader["Range"] = r
-                    resp = requests.get(url, headers=rheader, stream=True)
+                    resp = requests.get(url, headers=rheader, timeout=32, stream=True)
                 with resp:
                     try:
-                        it = resp.iter_content(1048576)
+                        it = resp.iter_content(packet)
                     except requests.exceptions.StreamConsumedError:
                         break
                     while True:
                         try:
-                            b = next(it)
+                            #b = next(it)
+                            fut = submit(next, it)
+                            b = fut.result(timeout=24)
                         except (ValueError, AttributeError):
                             raise StopIteration
                         if end and len(b) + size > end:
@@ -135,12 +172,14 @@ def download(url, fn, resp=None, index=0, start=None, end=None):
                         s = f"\r{percentage}%"
                         s += " " * (64 - len(s))
                         print(s, end="")
+                        updated = True
             except StopIteration:
                 break
             except:
                 print_exc()
                 time.sleep(5)
                 print(f"Thread {index} errored, retrying...")
+                packet = 65536
             resp = None
     return fn
 
@@ -164,7 +203,7 @@ for i in range(1):
     rheader = header()
     resp = requests.get(url, headers=rheader, stream=True)
     url = resp.url
-    head = dict((k.casefold(), v) for k, v in resp.headers.items())
+    head = cdict((k.casefold(), v) for k, v in resp.headers.items())
     threads = 1
     progress = {}
     fsize = int(head.get("content-length", 0))
@@ -211,12 +250,12 @@ for i in range(1):
         fn = head.get("attachment-filename") or url.rstrip("/").rsplit("/", 1)[-1].split("?", 1)[0] or "file"
     fn = "files/" + fn.rsplit("/", 1)[-1]
     # threads = (random.randint(100, 1200)) ** 2 // 10000
-    # threads = random.randint(1, 512)
-    threads = max(1, min(512, threads))
+    # threads = random.randint(1, 64)
+    threads = max(1, min(64, threads))
+    exc = concurrent.futures.ThreadPoolExecutor(max_workers=threads << 1)
+    submit = exc.submit
     if threads > 1:
         print(f"Splitting into {threads} threads...")
-        exc = concurrent.futures.ThreadPoolExecutor(max_workers=threads)
-        submit = exc.submit
         workers = [None] * threads
         load = fsize // threads
         for i in range(threads):
