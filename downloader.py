@@ -189,27 +189,36 @@ fn = None
 if len(sys.argv) < 2:
     url = input("Please enter a URL to download from: ")
 else:
-    url = sys.argv[1]
-    if len(sys.argv) >= 3:
-        fn = " ".join(sys.argv[2:])
+    args = list(sys.argv)
+    url = args[1]
+    if url == "-threads":
+        args.pop(1)
+        threads = int(args.pop(1))
+        if len(args) < 2:
+            url = input("Please enter a URL to download from: ")
+        else:
+            url = args[1]
+    else:
+        threads = 1
+    if len(args) >= 3:
+        fn = " ".join(args[2:])
 
 
 if not os.path.exists("cache"):
     os.mkdir("cache")
 if not os.path.exists("files"):
     os.mkdir("files")
-for i in range(1):
-    print("Sending sampler request...")
-    t = utc()
-    rheader = header()
-    resp = requests.get(url, headers=rheader, stream=True)
-    url = resp.url
-    head = cdict((k.casefold(), v) for k, v in resp.headers.items())
-    threads = 1
-    progress = {}
-    fsize = int(head.get("content-length", 0))
-    if "bytes" in head.get("accept-ranges", ""):
-        print("Accept-Ranges header found.")
+print("Sending sampler request...")
+t = utc()
+rheader = header()
+resp = requests.get(url, headers=rheader, stream=True)
+url = resp.url
+head = cdict((k.casefold(), v) for k, v in resp.headers.items())
+progress = {}
+fsize = int(head.get("content-length", 0))
+if "bytes" in head.get("accept-ranges", ""):
+    print("Accept-Ranges header found.")
+    if threads == 1:
         try:
             with open("training.txt", "r", encoding="utf-8") as f:
                 s = f.read()
@@ -247,65 +256,65 @@ for i in range(1):
             n = round(fsize / 4194304)
             print(f"Decision tree empty: {n}")
             threads = n
-    if not fn:
-        fn = head.get("attachment-filename") or url.rstrip("/").rsplit("/", 1)[-1].split("?", 1)[0] or "file"
-    fn = "files/" + fn.rsplit("/", 1)[-1]
-    # threads = (random.randint(100, 1200)) ** 2 // 10000
-    # threads = random.randint(1, 64)
-    threads = max(1, min(64, threads))
-    exc = concurrent.futures.ThreadPoolExecutor(max_workers=threads << 1)
-    submit = exc.submit
-    if threads > 1:
-        print(f"Splitting into {threads} threads...")
-        workers = [None] * threads
-        load = fsize // threads
-        for i in range(threads):
-            start = i * load
-            if i == threads - 1:
-                end = None
-            else:
-                end = start + load
-            workers[i] = submit(download, url, f"cache/thread-{i}", resp, index=i, start=start, end=end)
-            resp = None
-        fut = workers[0]
-        if os.path.exists(fn):
-            os.remove(fn)
-        fi = fut.result()
-        os.rename(fi, fn)
-        with open(fn, "ab") as f:
-            for fut in workers[1:]:
-                fi = fut.result()
-                with open(fi, "rb") as g:
-                    while True:
-                        b = g.read(4194304)
-                        if not b:
-                            break
-                        f.write(b)
-                submit(os.remove, fi)
-        exc.shutdown(wait=True)
-    else:
-        print("Resuming request using 1 thread...")
-        download(url, fn, resp)
-    s = utc() - t
-    fs = os.path.getsize(fn)
-    with open("training.txt", "a", encoding="utf-8") as f:
-        f.write(f"{fs} {threads} {s}\n")
-    e = ""
-    bps = fs / s * 8
-    if bps >= 1 << 10:
-        if bps >= 1 << 20:
-            if bps >= 1 << 30:
-                if bps >= 1 << 40:
-                    e = "T"
-                    bps /= 1 << 40
-                else:
-                    e = "G"
-                    bps /= 1 << 30
-            else:
-                e = "M"
-                bps /= 1 << 20
+        threads = max(1, min(64, threads))
+else:
+    threads = 1
+if not fn:
+    fn = head.get("attachment-filename") or url.rstrip("/").rsplit("/", 1)[-1].split("?", 1)[0] or "file"
+fn = "files/" + fn.rsplit("/", 1)[-1]
+exc = concurrent.futures.ThreadPoolExecutor(max_workers=threads << 1)
+submit = exc.submit
+if threads > 1:
+    print(f"Splitting into {threads} threads...")
+    workers = [None] * threads
+    load = fsize // threads
+    for i in range(threads):
+        start = i * load
+        if i == threads - 1:
+            end = None
         else:
-            e = "k"
-            bps /= 1 << 10
-    bps = str(round(bps, 4)) + " " + e
-    print(f"\n{fs} bytes successfully downloaded in {time_disp(s)}, average download speed {bps}bps")
+            end = start + load
+        workers[i] = submit(download, url, f"cache/thread-{i}", resp, index=i, start=start, end=end)
+        resp = None
+    fut = workers[0]
+    if os.path.exists(fn):
+        os.remove(fn)
+    fi = fut.result()
+    os.rename(fi, fn)
+    with open(fn, "ab") as f:
+        for fut in workers[1:]:
+            fi = fut.result()
+            with open(fi, "rb") as g:
+                while True:
+                    b = g.read(4194304)
+                    if not b:
+                        break
+                    f.write(b)
+            submit(os.remove, fi)
+    exc.shutdown(wait=True)
+else:
+    print("Resuming request using 1 thread...")
+    download(url, fn, resp)
+s = utc() - t
+fs = os.path.getsize(fn)
+with open("training.txt", "a", encoding="utf-8") as f:
+    f.write(f"{fs} {threads} {s}\n")
+e = ""
+bps = fs / s * 8
+if bps >= 1 << 10:
+    if bps >= 1 << 20:
+        if bps >= 1 << 30:
+            if bps >= 1 << 40:
+                e = "T"
+                bps /= 1 << 40
+            else:
+                e = "G"
+                bps /= 1 << 30
+        else:
+            e = "M"
+            bps /= 1 << 20
+    else:
+        e = "k"
+        bps /= 1 << 10
+bps = str(round(bps, 4)) + " " + e
+print(f"\n{fs} bytes successfully downloaded in {time_disp(s)}, average download speed {bps}bps")
