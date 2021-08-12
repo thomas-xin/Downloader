@@ -128,6 +128,7 @@ def header():
     return {
         "User-Agent": f"Mozilla/5.{random.randint(1, 9)}",
         "DNT": "1",
+        "X-Forwarded-For": ".".join(str(random.randint(0, 255)) for _ in range(4)),
     }
 
 
