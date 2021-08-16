@@ -188,6 +188,7 @@ def download(url, fn, resp=None, index=0, start=None, end=None):
 fn = None
 if len(sys.argv) < 2:
     url = input("Please enter a URL to download from: ")
+    threads = 1
 else:
     args = list(sys.argv)
     url = args[1]
@@ -261,7 +262,7 @@ else:
     threads = 1
 if not fn:
     fn = head.get("attachment-filename") or url.rstrip("/").rsplit("/", 1)[-1].split("?", 1)[0] or "file"
-fn = "files/" + fn.rsplit("/", 1)[-1]
+    fn = "files/" + fn.rsplit("/", 1)[-1]
 exc = concurrent.futures.ThreadPoolExecutor(max_workers=threads << 1)
 submit = exc.submit
 if threads > 1:
