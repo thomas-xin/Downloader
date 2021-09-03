@@ -277,6 +277,7 @@ if threads > 1:
             end = start + load
         workers[i] = submit(download, url, f"cache/thread-{i}", resp, index=i, start=start, end=end)
         resp = None
+        time.sleep(0.5)
     fut = workers[0]
     if os.path.exists(fn):
         os.remove(fn)
