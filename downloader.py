@@ -152,7 +152,7 @@ def download(url, fn, resp=None, index=0, start=None, end=None):
                 with resp:
                     if index and resp.status_code >= 400:
                         if resp.status_code in (429, 503):
-                            time.sleep(15)
+                            time.sleep(7 + random.random() * 4 + index / 2)
                         raise ConnectionError(resp.status_code, resp.text.rstrip())
                     try:
                         it = resp.iter_content(packet)
