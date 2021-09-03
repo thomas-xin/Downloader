@@ -216,7 +216,7 @@ resp = requests.get(url, headers=rheader, stream=True)
 url = resp.url
 head = cdict((k.casefold(), v) for k, v in resp.headers.items())
 progress = {}
-fsize = int(head.get("content-length", 0))
+fsize = int(head.get("content-length", 1073741824))
 if "bytes" in head.get("accept-ranges", ""):
     print("Accept-Ranges header found.")
     if threads == 1:
