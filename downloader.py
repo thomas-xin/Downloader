@@ -175,7 +175,9 @@ def download(url, fn, resp=None, index=0, start=None, end=None):
                         total = sum(progress.values())
                         percentage = round(total / fsize * 100, 4)
                         s = f"\r{percentage}%"
-                        s += " " * (64 - len(s))
+                        box = lambda i: " ░▒▓█"[round(i * 4)]
+                        s += " " * (10 - len(s))
+                        s += "".join(box(v * threads / fsize) for v in progress.values())
                         print(s, end="")
                         updated = True
             except StopIteration:
@@ -257,6 +259,8 @@ if "bytes" in head.get("accept-ranges", ""):
             else:
                 lr = 0
             threads += random.randint(-lr, lr)
+            if threads <= 1:
+                threads = random.randint(1, 3)
         else:
             n = round(fsize / 4194304)
             print(f"Decision tree empty: {n}")
@@ -279,7 +283,7 @@ if threads > 1:
         if i == threads - 1:
             end = None
         else:
-            end = start + load
+            end = min(start + load, fsize)
         workers[i] = submit(download, url, f"cache/thread-{i}", resp, index=i, start=start, end=end)
         resp = None
         time.sleep(delay)
