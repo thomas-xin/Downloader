@@ -139,7 +139,7 @@ COLOURS.append("\x1b[38;5;15m█")
 updated = False
 def download(url, fn, resp=None, index=0, start=None, end=None):
     size = 0
-    packet = 524288
+    packet = 262144
     with open(fn, "wb") as f:
         while True:
             try:
@@ -197,7 +197,7 @@ def download(url, fn, resp=None, index=0, start=None, end=None):
                 print_exc()
                 time.sleep(5)
                 print(f"\nThread {index} errored, retrying...")
-                packet = max(65536, packet / 2)
+                packet = max(65536, packet >> 1)
             resp = None
     return fn
 
