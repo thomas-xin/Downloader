@@ -303,7 +303,10 @@ if threads > 1:
             end = min(start + load, fsize)
         workers[i] = submit(download, url, f"cache/thread-{i}", resp, index=i, start=start, end=end)
         resp = None
-        time.sleep(delay)
+        try:
+            workers[i].result(timeout=delay)
+        except concurrent.futures.TimeoutError:
+            pass
         if workers[i].done() or i >= 1 and workers[i - 1].done() or i >= 2 and workers[i - 2].done():
             delay /= 2
     fut = workers[0]
