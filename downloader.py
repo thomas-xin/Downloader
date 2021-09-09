@@ -246,7 +246,7 @@ if "bytes" in head.get("accept-ranges", ""):
         if decision:
             distances = ((abs(fs - fsize) / (2 + log(len(decision[fs]))), fs) for fs in decision)
             LS = sorted(distances)[0][1]
-            sizes = {sum(v) / len(v) * (6 + log(k)): k for k, v in decision[LS].items()}
+            sizes = {sum(v) / len(v) * (12 + log(k, 2)): k for k, v in decision[LS].items()}
             sizes = {k: v for k, v in sorted(sizes.items())}
             k = next(iter(sizes))
             threads = round(sizes[k] / LS * fsize)
