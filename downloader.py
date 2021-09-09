@@ -139,7 +139,7 @@ COLOURS.append("\x1b[38;5;15m█")
 updated = False
 def download(url, fn, resp=None, index=0, start=None, end=None):
     size = 0
-    packet = 1048576
+    packet = 524288
     with open(fn, "wb") as f:
         while True:
             try:
@@ -181,7 +181,7 @@ def download(url, fn, resp=None, index=0, start=None, end=None):
                         total = sum(progress.values())
                         percentage = round(total / fsize * 100, 4)
                         s = f"\r{percentage}%"
-                        box = lambda i: COLOURS[round(i * len(COLOURS) - 1)]
+                        box = lambda i: COLOURS[round(i * (len(COLOURS) - 1))]
                         s += " " * (10 - len(s))
                         prog = "".join(box(v * threads / fsize) for v in progress.values()).rstrip()
                         s += prog
