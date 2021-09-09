@@ -12,6 +12,8 @@ Currently requires the `requests` python package as a dependency.
 ## Usage
 The last argument (name of output file) is optional, and will be automatically determined if not provided (this will put the file in a folder named `files`). If the URL is not provided, the user will be prompted to input one after the program starts. And finally, if the `-threads x` arguments are not provided, it will automatically be determined based on the file's size as well as the speed of previously downloaded files if applicable.
 ### Windows
-`py downloader.py -threads 12 https://speed.hetzner.de/1GB.bin file.bin`
+`python downloader.py -threads 12 https://speed.hetzner.de/1GB.bin file.bin`
+`py downloader.py https://speed.hetzner.de/1GB.bin`
 ### Linux
 `python3 downloader.py -threads 12 https://speed.hetzner.de/1GB.bin file.bin`
+`python3 downloader.py https://speed.hetzner.de/1GB.bin`
