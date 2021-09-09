@@ -1,8 +1,50 @@
 # Better than Curl 🥌
 
-import os, sys, requests, time, math, random, concurrent.futures
+import os, sys, subprocess, time, math, random, concurrent.futures
+
+try:
+    import requests
+except ModuleNotFoundError:
+    subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "--user", "requests"])
+    import requests
+os.system("color")
+
 from traceback import print_exc
 from math import *
+from concurrent.futures import thread
+
+def _adjust_thread_count(self):
+    # if idle threads are available, don't spin new threads
+    try:
+        if self._idle_semaphore.acquire(timeout=0):
+            return
+    except AttributeError:
+        pass
+
+    # When the executor gets lost, the weakref callback will wake up
+    # the worker threads.
+    def weakref_cb(_, q=self._work_queue):
+        q.put(None)
+
+    num_threads = len(self._threads)
+    if num_threads < self._max_workers:
+        thread_name = '%s_%d' % (self._thread_name_prefix or self, num_threads)
+        t = thread.threading.Thread(
+            name=thread_name,
+            target=thread._worker,
+            args=(
+                thread.weakref.ref(self, weakref_cb),
+                self._work_queue,
+                self._initializer,
+                self._initargs,
+            ),
+            daemon=True
+        )
+        t.start()
+        self._threads.add(t)
+        thread._threads_queues[t] = self._work_queue
+
+concurrent.futures.ThreadPoolExecutor._adjust_thread_count = lambda self: _adjust_thread_count(self)
 
 utc = time.time
 math.round = round
@@ -91,6 +133,9 @@ def header():
     }
 
 
+COLOURS = [" "]
+COLOURS.extend(f"\x1b[38;5;{i}m█" for i in range(232, 256))
+COLOURS.append("\x1b[38;5;15m█")
 updated = False
 def download(url, fn, resp=None, index=0, start=None, end=None):
     size = 0
@@ -119,8 +164,10 @@ def download(url, fn, resp=None, index=0, start=None, end=None):
                         break
                     while True:
                         try:
-                            #b = next(it)
                             fut = submit(next, it)
+                        except RuntimeError:
+                            return
+                        try:
                             b = fut.result(timeout=24)
                         except (ValueError, AttributeError):
                             raise StopIteration
@@ -134,9 +181,14 @@ def download(url, fn, resp=None, index=0, start=None, end=None):
                         total = sum(progress.values())
                         percentage = round(total / fsize * 100, 4)
                         s = f"\r{percentage}%"
-                        box = lambda i: " ░▒▓█"[round(i * 4)]
+                        box = lambda i: COLOURS[round(i * len(COLOURS) - 1)]
                         s += " " * (10 - len(s))
-                        s += "".join(box(v * threads / fsize) for v in progress.values())
+                        prog = "".join(box(v * threads / fsize) for v in progress.values()).rstrip()
+                        s += prog
+                        if verbose and prog != last_progress:
+                            globals()["last_progress"] = prog
+                            s = "\n" + s[1:]
+                        s += "\x1b[38;5;7m"
                         print(s, end="")
                         updated = True
             except StopIteration:
@@ -145,17 +197,21 @@ def download(url, fn, resp=None, index=0, start=None, end=None):
                 print_exc()
                 time.sleep(5)
                 print(f"\nThread {index} errored, retrying...")
-                packet = 65536
+                packet = max(65536, packet / 2)
             resp = None
     return fn
 
 
+verbose = False
 fn = None
 if len(sys.argv) < 2:
     url = input("Please enter a URL to download from: ")
     threads = 1
 else:
     args = list(sys.argv)
+    if "-v" in args[1:]:
+        args.remove("-v")
+        verbose = True
     url = args[1]
     if url == "-threads":
         args.pop(1)
@@ -181,6 +237,8 @@ resp = requests.get(url, headers=rheader, stream=True)
 url = resp.url
 head = {k.casefold(): v for k, v in resp.headers.items()}
 progress = {}
+if verbose:
+    last_progress = ""
 fsize = int(head.get("content-length", 1073741824))
 if "bytes" in head.get("accept-ranges", ""):
     print("Accept-Ranges header found.")
