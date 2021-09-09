@@ -14,10 +14,10 @@ The last argument (name of output file) is optional, and will be automatically d
 
 Additionally, the `-v` (verbose) flag will cause the progress bar to move downwards instead of overwriting itself.
 ### Windows
-`python downloader.py -threads 12 https://speed.hetzner.de/1GB.bin file.bin`
+`python downloader.py -threads 12 http://speedcheck.cdn.on.net/1000meg.test file.bin`
 
-`py downloader.py https://speed.hetzner.de/1GB.bin`
+`py downloader.py http://speedcheck.cdn.on.net/1000meg.test`
 ### Linux
-`python3 downloader.py -threads 12 https://speed.hetzner.de/1GB.bin file.bin`
+`python3 downloader.py -threads 12 http://speedcheck.cdn.on.net/1000meg.test file.bin`
 
-`python3 downloader.py https://speed.hetzner.de/1GB.bin`
+`python3 downloader.py http://speedcheck.cdn.on.net/1000meg.test`
