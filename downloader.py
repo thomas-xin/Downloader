@@ -287,7 +287,7 @@ if threads > 1:
         workers[i] = submit(download, url, f"cache/thread-{i}", resp, index=i, start=start, end=end)
         resp = None
         time.sleep(delay)
-        if workers[i].done():
+        if workers[i].done() or i >= 1 and workers[i - 1].done() or i >= 2 and workers[i - 2].done():
             delay /= 2
     fut = workers[0]
     if os.path.exists(fn):
