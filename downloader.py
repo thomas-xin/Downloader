@@ -239,7 +239,7 @@ def upload(url, fn, resp=None, index=0, start=None, end=None):
 	return fn
 
 
-uploading = verbose = False
+uploading = verbose = notrain = False
 fn = None
 if len(sys.argv) < 2:
 	url = input("Please enter a URL to download from: ")
@@ -252,6 +252,9 @@ else:
 	if "-u" in args:
 		args.remove("-u")
 		uploading = True
+	if "-n" in args:
+		args.remove("-n")
+		notrain = True
 	if "-threads" in args:
 		i = args.index("-threads")
 		threads = int(args[i + 1])
@@ -435,8 +438,9 @@ else:
 	download(url, fn, resp)
 s = utc() - t
 fs = os.path.getsize(fn)
-with open("training.txt", "a", encoding="utf-8") as f:
-	f.write(f"{fs} {threads} {s}\n")
+if not notrain:
+	with open("training.txt", "a", encoding="utf-8") as f:
+		f.write(f"{fs} {threads} {s}\n")
 e = ""
 bps = fs / s * 8
 if bps >= 1 << 10:
