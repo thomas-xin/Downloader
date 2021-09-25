@@ -1,7 +1,8 @@
 # Better than Curl 🥌
 
 import os, sys, subprocess, time, math, random, concurrent.futures, urllib.request
-os.system("color")
+if os.name == "nt":
+	os.system("color")
 
 from traceback import print_exc
 from math import *
