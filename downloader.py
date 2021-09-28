@@ -139,7 +139,11 @@ def download(url, fn, resp=None, index=0, start=None, end=None):
 	# if not random.randint(0, 16):
 	# 	print(f"Intentionally blocking thread {index}...")
 	# 	time.sleep(86400)
-	with open(fn, "wb") as f:
+	try:
+		f = open(fn, "wb")
+	except:
+		f = open(fn, "rb+")
+	with f:
 		while True:
 			try:
 				if not resp:
