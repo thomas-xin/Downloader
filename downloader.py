@@ -131,6 +131,8 @@ def header():
 COLOURS = ["\x1b[38;5;16m█"]
 COLOURS.extend(f"\x1b[38;5;{i}m█" for i in range(232, 256))
 COLOURS.append("\x1b[38;5;15m█")
+updated = False
+
 
 def download(url, fn, resp=None, index=0, start=None, end=None):
 	size = 0
@@ -484,6 +486,170 @@ if threads > 1:
 						else:
 							end = min(start + load, fsize)
 						fut = workers[i + 1] = prio.submit(download, url, f"cache/${PID}-{i + 1}", resp, index=i + 1, start=start, end=end)
+					continue
+				else:
+					if x:
+						tt = 20
+					break
+			with open(fi, "rb") as g:
+				while True:
+					b = g.read(4194304)
+					if not b:
+						break
+					f.write(b)
+			try:
+				os.remove(fi)
+			except:
+				pass
+else:
+	print("Resuming request using 1 thread...")
+	download(url, fn, resp)
+s = utc() - t
+fs = os.path.getsize(fn)
+if not notrain:
+	with open("training.txt", "a", encoding="utf-8") as f:
+		f.write(f"{fs} {threads} {s}\n")
+e = ""
+bps = fs / s * 8
+if bps >= 1 << 10:
+	if bps >= 1 << 20:
+		if bps >= 1 << 30:
+			if bps >= 1 << 40:
+				e = "T"
+				bps /= 1 << 40
+			else:
+				e = "G"
+				bps /= 1 << 30
+		else:
+			e = "M"
+			bps /= 1 << 20
+	else:
+		e = "k"
+		bps /= 1 << 10
+bps = str(round(bps, 4)) + " " + e
+print(f"\n{fs} bytes successfully downloaded in {time_disp(s)}, average download speed {bps}bps")
+
+try:
+	os.rmdir("cache")
+except:
+	pass
+try:
+	os.rmdir("files")
+except:
+	pass
+
+if not os.path.exists("cache"):
+	os.mkdir("cache")
+if not os.path.exists("files"):
+	os.mkdir("files")
+print("Sending sampler request...")
+rheader = header()
+req = urllib.request.Request(url, headers=rheader)
+resp = urllib.request.urlopen(req)
+url = resp.url
+head = {k.casefold(): v for k, v in resp.headers.items()}
+if verbose:
+	last_progress = ""
+fsize = int(head.get("content-length", 1073741824))
+if "bytes" in head.get("accept-ranges", ""):
+	print("Accept-Ranges header found.")
+	if threads == 1:
+		try:
+			with open("training.txt", "r", encoding="utf-8") as f:
+				s = f.read()
+		except FileNotFoundError:
+			s = ""
+		decision = {}
+		for line in s.splitlines():
+			spl = line.rstrip().split()
+			fs, tc, tm = int(spl[0]), int(spl[1]), float(spl[2])
+			try:
+				ratio = decision[fs]
+			except KeyError:
+				ratio = decision[fs] = {}
+			try:
+				ratio[tc].append(tm)
+			except KeyError:
+				ratio[tc] = [tm]
+		if decision:
+			distances = ((abs(fs - fsize) / (2 + log(len(decision[fs]))), fs) for fs in decision)
+			LS = sorted(distances)[0][1]
+			sizes = {sum(v) / len(v) * (12 + log(k, 2)): k for k, v in decision[LS].items()}
+			sizes = {k: v for k, v in sorted(sizes.items())}
+			k = next(iter(sizes))
+			threads = round(sizes[k] / LS * fsize)
+			if LS == fsize:
+				print(f"Decision tree hit: {threads}")
+			else:
+				print(f"Decision tree miss: {threads}")
+			if random.random() >= 0.125:
+				lr = max(1, round(threads / 8), round(256 / len(sizes)))
+			else:
+				lr = 0
+			threads += random.randint(-lr, lr)
+			if threads <= 1:
+				threads = random.randint(1, 3)
+		else:
+			n = round(fsize / 4194304)
+			print(f"Decision tree empty: {n}")
+			threads = n
+		threads = max(1, min(64, threads))
+else:
+	threads = 1
+if not fn:
+	fn = head.get("attachment-filename") or url.rstrip("/").rsplit("/", 1)[-1].split("?", 1)[0] or "file"
+	fn = "files/" + fn.rsplit("/", 1)[-1]
+exc = concurrent.futures.ThreadPoolExecutor(max_workers=threads + 1 << 1)
+prio = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+submit = exc.submit
+if threads > 1:
+	print(f"Splitting into {threads} threads...")
+	workers = [None] * threads
+	load = math.ceil(fsize / threads)
+	delay = 1
+	tt = None
+	for i in range(threads):
+		start = i * load
+		if i == threads - 1:
+			end = None
+		else:
+			end = min(start + load, fsize)
+		workers[i] = submit(download, url, f"cache/thread-{i}", resp, index=i, start=start, end=end)
+		resp = None
+		try:
+			j = max(0, i - 2)
+			workers[j].result(timeout=delay)
+		except concurrent.futures.TimeoutError:
+			pass
+		if workers[i].done() or i >= 1 and workers[i - 1].done() or i >= 2 and workers[i - 2].done():
+			delay /= 2
+		else:
+			delay *= math.sqrt(2)
+		time.sleep(0.5)
+		fut = workers[0]
+		if tt is None and fut.done():
+			tt = utc() - t
+	if os.path.exists(fn):
+		os.remove(fn)
+	fi = fut.result()
+	if tt is None:
+		tt = utc() - t + 20
+	os.rename(fi, fn)
+	with open(fn, "ab") as f:
+		for i, fut in enumerate(workers[1:]):
+			for x in range(2147483648):
+				try:
+					fi = fut.result(timeout=tt)
+				except concurrent.futures.TimeoutError:
+					if i + 2 >= len(workers) or workers[i + 2].done() or x > 2:
+						print(f"Thread {i + 1} timed out, restarting...")
+						tt += 5
+						start = (i + 1) * load
+						if i + 1 == threads - 1:
+							end = None
+						else:
+							end = min(start + load, fsize)
+						fut = workers[i + 1] = prio.submit(download, url, f"cache/thread-{i + 1}", resp, index=i + 1, start=start, end=end)
 					continue
 				else:
 					if x:
