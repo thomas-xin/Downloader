@@ -131,8 +131,6 @@ def header():
 COLOURS = ["\x1b[38;5;16m█"]
 COLOURS.extend(f"\x1b[38;5;{i}m█" for i in range(232, 256))
 COLOURS.append("\x1b[38;5;15m█")
-updated = False
-
 
 def download(url, fn, resp=None, index=0, start=None, end=None):
 	size = 0
