@@ -216,11 +216,11 @@ def upload(url, fn, resp=None, index=0, start=None, end=None):
 				# req = urllib.request.Request(url, data, headers=rheader, method="POST")
 				# resp = urllib.request.urlopen(req)
 				if index and resp.status_code >= 400:
-					if resp.code in (429, 500, 503):
+					if resp.status_code in (429, 500, 503):
 						time.sleep(7 + random.random() * 4 + index / 2)
 					else:
 						globals()["attempts"] += 1
-					raise ConnectionError(resp.code, resp.text.rstrip())
+					raise ConnectionError(resp.status_code, resp.text.rstrip())
 				size = end - start
 				progress[index] = size
 				if quiet:
@@ -313,7 +313,7 @@ if uploading:
 			end = None
 		else:
 			end = min(start + load, fsize)
-		workers[i] = submit(upload, "http://i.mizabot.xyz/upload_chunk", url, None, index=i, start=start, end=end)
+		workers[i] = submit(upload, "https://mizabot.xyz/upload_chunk", url, None, index=i, start=start, end=end)
 		try:
 			workers[i].result(timeout=delay)
 		except concurrent.futures.TimeoutError:
@@ -327,7 +327,7 @@ if uploading:
 	rheader = header()
 	rheader["x-file-name"] = url.rsplit("/", 1)[-1]
 	rheader["x-index"] = threads
-	url = "http://i.mizabot.xyz/merge"
+	url = "https://mizabot.xyz/merge"
 	req = urllib.request.Request(url, headers=rheader)
 	resp = urllib.request.urlopen(req)
 	print("\nhttps://mizabot.xyz/file" + resp.read()[2:].decode("utf-8", "replace"))
@@ -351,7 +351,7 @@ if uploading:
 			e = "k"
 			bps /= 1 << 10
 	bps = str(round(bps, 4)) + " " + e
-	print(f"{fs} bytes successfully uploaded in {time_disp(s)}, average download speed {bps}bps")
+	print(f"{fs} bytes successfully uploaded in {time_disp(s)}, average upload speed {bps}bps")
 	raise SystemExit
 
 PID = os.getpid()
