@@ -283,11 +283,22 @@ else:
 		args = args[:i] + args[i + 2:]
 	else:
 		max_attempts = 1
-	url = args[1] if len(args) > 1 else None
-	if not url:
-		url = input("Please enter a URL to download from: ")
-	if len(args) >= 3:
-		fn = " ".join(args[2:])
+	if "-c" in args:
+		args.remove("-c")
+		if args[-1].startswith("http") and "://" in args[-1]:
+			urls = args[1:]
+		else:
+			urls = args[1:-1]
+			fn = args[-1]
+		url = urls[0]
+		chunked = True
+	else:
+		url = args[1] if len(args) > 1 else None
+		if not url:
+			url = input("Please enter a URL to download from: ")
+		if len(args) >= 3:
+			fn = " ".join(args[2:])
+		chunked = False
 url = url.replace("\\", "/")
 
 
@@ -366,10 +377,18 @@ req = urllib.request.Request(url, headers=rheader)
 resp = urllib.request.urlopen(req)
 url = resp.url
 head = {k.casefold(): v for k, v in resp.headers.items()}
+print(head)
 if verbose:
 	last_progress = ""
-fsize = int(head.get("content-length", 1073741824))
-if "bytes" in head.get("accept-ranges", ""):
+if chunked:
+	r2 = urllib.request.Request(urls[-1], headers=rheader)
+	re2 = urllib.request.urlopen(r2)
+	fsize = int(head.get("content-length", 1073741824)) * (len(urls) - 1) + int(re2.headers.get("content-length", 1073741824))
+else:
+	fsize = int(head.get("content-length", 1073741824))
+if chunked:
+	threads = len(urls)
+elif "bytes" in head.get("accept-ranges", ""):
 	print("Accept-Ranges header found.")
 	if threads == 1:
 		try:
@@ -430,12 +449,16 @@ if threads > 1:
 		time.sleep(1 - tt)
 	tt = None
 	for i in range(threads):
-		start = i * load
-		if i == threads - 1:
-			end = None
+		if chunked:
+			url = urls[i]
+			workers[i] = submit(download, url, f"cache/${PID}-{i}", resp, index=i, start=0, end=None)
 		else:
-			end = min(start + load, fsize)
-		workers[i] = submit(download, url, f"cache/${PID}-{i}", resp, index=i, start=start, end=end)
+			start = i * load
+			if i == threads - 1:
+				end = None
+			else:
+				end = min(start + load, fsize)
+			workers[i] = submit(download, url, f"cache/${PID}-{i}", resp, index=i, start=start, end=end)
 		resp = None
 		try:
 			j = max(0, i - 2)
@@ -479,12 +502,15 @@ if threads > 1:
 					if i + 2 >= len(workers) or workers[i + 2].done() or x > 2:
 						print(f"Thread {i + 1} timed out, restarting...")
 						tt += 5
-						start = (i + 1) * load
-						if i + 1 == threads - 1:
-							end = None
+						if chunked:
+							fut = workers[i + 1] = prio.submit(download, urls[i + 1], f"cache/${PID}-{i + 1}", None, index=i + 1, start=0, end=None)
 						else:
-							end = min(start + load, fsize)
-						fut = workers[i + 1] = prio.submit(download, url, f"cache/${PID}-{i + 1}", resp, index=i + 1, start=start, end=end)
+							start = (i + 1) * load
+							if i + 1 == threads - 1:
+								end = None
+							else:
+								end = min(start + load, fsize)
+							fut = workers[i + 1] = prio.submit(download, url, f"cache/${PID}-{i + 1}", None, index=i + 1, start=start, end=end)
 					continue
 				else:
 					if x:
