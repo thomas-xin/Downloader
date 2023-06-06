@@ -277,7 +277,7 @@ else:
 		threads = int(args[i + 1])
 		args = args[:i] + args[i + 2:]
 	else:
-		threads = 1
+		threads = 0
 	if "-attempts" in args:
 		i = args.index("-attempts")
 		max_attempts = int(args[i + 1])
@@ -391,7 +391,7 @@ if chunked:
 	threads = len(urls)
 elif "bytes" in head.get("accept-ranges", ""):
 	print("Accept-Ranges header found.")
-	if threads == 1:
+	if threads < 1:
 		try:
 			with open("training.txt", "r", encoding="utf-8") as f:
 				s = f.read()
