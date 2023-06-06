@@ -257,6 +257,7 @@ fn = None
 if len(sys.argv) < 2:
 	url = input("Please enter a URL to download from: ")
 	threads = 1
+	chunked = False
 else:
 	args = list(sys.argv)
 	if "-v" in args:
@@ -430,7 +431,7 @@ elif "bytes" in head.get("accept-ranges", ""):
 			n = round(fsize / 4194304)
 			print(f"Decision tree empty: {n}")
 			threads = n
-		threads = max(1, min(64, threads))
+		threads = max(3, min(64, threads))
 else:
 	threads = 1
 if not fn:
