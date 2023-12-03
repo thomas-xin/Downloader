@@ -281,7 +281,7 @@ max_attempts = float("inf")
 fn = None
 if len(sys.argv) < 2:
 	url = input("Please enter a URL to download from: ")
-	threads = 1
+	threads = 0
 	chunked = False
 else:
 	args = list(sys.argv)
