@@ -135,6 +135,7 @@ COLOURS.append("\x1b[38;5;15m█")
 def download(url, fn, resp=None, index=0, start=None, end=None, tn=None):
 	size = 0
 	packet = 131072
+	# print(index, start, end)
 	if os.path.exists(fn) and end is not None and start is not None and os.path.getsize(fn) == end - start:
 		progress[index] = end - start
 		if resp:
@@ -413,8 +414,12 @@ if chunked:
 	r2 = urllib.request.Request(urls[-1], headers=rheader)
 	re2 = urllib.request.urlopen(r2)
 	fsize = int(head.get("content-length", 1073741824)) * (len(urls) - 1) + int(re2.headers.get("content-length", 1073741824))
+elif head.get("content-length"):
+	fsize = int(head["content-length"])
+elif head.get("content-range"):
+	fsize = int(head["content-range"].rsplit("/", 1)[-1])
 else:
-	fsize = int(head.get("content-length", 1073741824))
+	fsize = 1073741824
 if chunked:
 	threads = len(urls)
 elif "bytes" in head.get("accept-ranges", ""):
@@ -516,6 +521,8 @@ if threads > 1:
 				break
 		else:
 			delay += min(delay / 4, 2)
+		if delay > 5:
+			delay = 5
 		time.sleep(0.5)
 		fut = workers[0]
 		if tt is None and fut.done():
